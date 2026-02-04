@@ -97,8 +97,7 @@ async def cmd_start(message: types.Message):
             await message.answer("❌ Botdan foydalanish uchun kanallarga a'zo bo'ling!")
         else:
             await message.answer(
-                "🍿 <b>Xush kelibsiz!</b>\n\nKino kodini yuboring. Kino kodlarini Instagram sahifamizdan topishingiz mumkin 👇🏻\n\n"
-                "https://www.instagram.com/kino_movie_t.me?igsh=MWtrd3J5eHdwMmUwbA==", 
+                "🍿 <b>Xush kelibsiz!</b>\n\nKino kodini yuboring 🎥", 
                 parse_mode="HTML",
                 disable_web_page_preview=False
             )
