@@ -40,7 +40,7 @@ API_TOKEN = os.getenv('BOT_TOKEN')
 ADMIN_ID = int(os.getenv('ADMIN_ID')) if os.getenv('ADMIN_ID') else 0
 # Agar MOVIE_CHANNEL environment variable dan olinmasa, default qiymat berish yoki xatolik chiqarish
 # Agar sizda kanal ID si bo'lmasa, uni o'rnating yoki environment variable orqali berib keting
-MOVIE_CHANNEL = os.getenv('MOVIE_CHANNEL') or -1001234567890 # Misol uchun default qiymat, o'zgartiring yoki env da o'rnating
+MOVIE_CHANNEL = os.getenv('CHANNEL_ID') or -1001234567890 # Misol uchun default qiymat, o'zgartiring yoki env da o'rnating
 
 if not API_TOKEN:
     logging.error("BOT_TOKEN environment variable o'rnatilmagan!")
