@@ -15,7 +15,7 @@ Bot juda sodda ishlaydi:
 * 📊 Statistika: Bot foydalanuvchilari sonini kuzatish.
 
 ## 🛠 Texnik qism
-* Til: Python 3.x
+* Til: Python 3.11.0
 * Framework: aiogram (Asinxron)
 * Ma'lumotlar bazasi: SQLite (Sodda va tezkor ma'lumot saqlash uchun)
 
