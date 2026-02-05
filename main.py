@@ -24,10 +24,8 @@ def keep_alive():
     t.start()
 
 # --- SOZLAMALAR ---
-# Render yoki Environment variables'dan ma'lumotlarni olish
 API_TOKEN = os.getenv('BOT_TOKEN')
 ADMIN_ID = int(os.getenv('ADMIN_ID')) if os.getenv('ADMIN_ID') else 0
-MOVIE_CHANNEL = os.getenv('CHANNEL_ID') 
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
@@ -38,51 +36,44 @@ db = sqlite3.connect("users.db", check_same_thread=False)
 cursor = db.cursor()
 cursor.execute("CREATE TABLE IF NOT EXISTS users (user_id INTEGER UNIQUE)")
 cursor.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT UNIQUE, value TEXT)")
-cursor.execute("CREATE TABLE IF NOT EXISTS channels (link TEXT UNIQUE, type TEXT, username TEXT)") 
+cursor.execute("CREATE TABLE IF NOT EXISTS channels (link TEXT UNIQUE, username TEXT)") 
 cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('sub_status', 'on')")
 db.commit()
 
 class AdminStates(StatesGroup):
-    waiting_for_new_link = State()
     waiting_for_ad = State()
+    waiting_for_channel = State()
 
-# --- TUGMALAR (KEYBOARDS) ---
-
+# --- TUGMALAR ---
 def main_admin_kb():
     cursor.execute("SELECT value FROM settings WHERE key='sub_status'")
-    status_row = cursor.fetchone()
-    status = status_row[0] if status_row else 'on'
+    status = cursor.fetchone()[0]
     sub_btn = "🔴 Obuna: O'CHIQ" if status == 'off' else "🟢 Obuna: YOQIQ"
 
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="📢 Reklama yuborish")],
-            [KeyboardButton(text=sub_btn), KeyboardButton(text="🔄 Qayta ishga tushirish")],
-            [KeyboardButton(text="🔐 Majburiy obuna kanal/guruh")]
+            [KeyboardButton(text=sub_btn), KeyboardButton(text="➕ Kanal qo'shish")],
+            [KeyboardButton(text="🔄 Qayta ishga tushirish")]
         ], resize_keyboard=True
     )
 
 # --- FUNKSIYALAR ---
-
 async def check_all_subs(user_id):
     cursor.execute("SELECT value FROM settings WHERE key='sub_status'")
-    status_row = cursor.fetchone()
-    if status_row and status_row[0] == 'off': 
-        return True
+    if cursor.fetchone()[0] == 'off': return True
 
     cursor.execute("SELECT username FROM channels")
-    rows = cursor.fetchall()
-    for (uname,) in rows:
+    channels = cursor.fetchall()
+    for (uname,) in channels:
         try:
             m = await bot.get_chat_member(chat_id=uname, user_id=user_id)
             if m.status not in ['member', 'administrator', 'creator']: 
                 return False
-        except Exception: 
-            continue
+        except Exception: continue
     return True
 
 # --- HANDLERS ---
-
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (message.from_user.id,))
@@ -93,28 +84,50 @@ async def cmd_start(message: types.Message):
     else:
         is_sub = await check_all_subs(message.from_user.id)
         if not is_sub:
-            # Bu yerda show_sub_channels funksiyasini chaqirishingiz yoki xabar yuborishingiz kerak
             await message.answer("❌ Botdan foydalanish uchun kanallarga a'zo bo'ling!")
         else:
-            await message.answer(
-                "🍿 <b>Xush kelibsiz!</b>\n\nKino kodini yuboring 🎥", 
-                parse_mode="HTML",
-                disable_web_page_preview=False
-            )
+            await message.answer("🍿 Xush kelibsiz! Kino kodini yuboring.")
+
+# Statistika
+@dp.message(F.text == "📊 Statistika", F.from_user.id == ADMIN_ID)
+async def show_stats(message: types.Message):
+    cursor.execute("SELECT COUNT(*) FROM users")
+    count = cursor.fetchone()[0]
+    await message.answer(f"👥 Bot a'zolari soni: {count} ta")
 
 # Obuna holatini o'zgartirish
-@dp.message(F.text.startswith("🟢 Obuna:") | F.text.startswith("🔴 Obuna:"), F.from_user.id == ADMIN_ID)
+@dp.message(F.text.contains("Obuna:"), F.from_user.id == ADMIN_ID)
 async def toggle_sub(message: types.Message):
     cursor.execute("SELECT value FROM settings WHERE key='sub_status'")
     current = cursor.fetchone()[0]
     new_status = 'off' if current == 'on' else 'on'
     cursor.execute("UPDATE settings SET value=? WHERE key='sub_status'", (new_status,))
     db.commit()
-    await message.answer(f"Majburiy obuna holati o'zgartirildi: {new_status}", reply_markup=main_admin_kb())
+    await message.answer(f"Holat o'zgardi: {new_status}", reply_markup=main_admin_kb())
+
+# Reklama yuborish (FSM bilan)
+@dp.message(F.text == "📢 Reklama yuborish", F.from_user.id == ADMIN_ID)
+async def start_ad(message: types.Message, state: FSMContext):
+    await message.answer("Reklama matnini yoki rasm/videoni yuboring:")
+    await state.set_state(AdminStates.waiting_for_ad)
+
+@dp.message(AdminStates.waiting_for_ad, F.from_user.id == ADMIN_ID)
+async def send_ad(message: types.Message, state: FSMContext):
+    cursor.execute("SELECT user_id FROM users")
+    users = cursor.fetchall()
+    count = 0
+    for (uid,) in users:
+        try:
+            await message.copy_to(chat_id=uid)
+            count += 1
+        except: continue
+    await message.answer(f"Reklama {count} kishiga yuborildi.")
+    await state.clear()
 
 async def main():
-    keep_alive() # Webserverni ishga tushirish
+    keep_alive()
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
+    
